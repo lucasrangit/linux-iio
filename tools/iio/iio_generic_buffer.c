@@ -65,7 +65,8 @@ int size_from_channelarray(struct iio_channel_info *channels, int num_channels)
 			channels[i].location = bytes - bytes % channels[i].bytes
 					       + channels[i].bytes;
 
-		bytes = channels[i].location + channels[i].bytes;
+		bytes = channels[i].location + channels[i].bytes
+			* (channels[i].repeat ? channels[i].repeat : 1);
 		i++;
 	}
 
@@ -175,30 +176,38 @@ void process_scan(char *data,
 		  struct iio_channel_info *channels,
 		  int num_channels)
 {
-	int k;
+	int k, repeat_nr;
 
-	for (k = 0; k < num_channels; k++)
-		switch (channels[k].bytes) {
-			/* only a few cases implemented so far */
-		case 1:
-			print1byte(*(uint8_t *)(data + channels[k].location),
-				   &channels[k]);
-			break;
-		case 2:
-			print2byte(*(uint16_t *)(data + channels[k].location),
-				   &channels[k]);
-			break;
-		case 4:
-			print4byte(*(uint32_t *)(data + channels[k].location),
-				   &channels[k]);
-			break;
-		case 8:
-			print8byte(*(uint64_t *)(data + channels[k].location),
-				   &channels[k]);
-			break;
-		default:
-			break;
-		}
+	for (k = 0; k < num_channels; k++) {
+		repeat_nr = 0;
+		do {
+			switch (channels[k].bytes) {
+				/* only a few cases implemented so far */
+			case 1:
+				print1byte(*(uint8_t *)(data + channels[k].location
+						+ repeat_nr*channels[k].bytes),
+					   &channels[k]);
+				break;
+			case 2:
+				print2byte(*(uint16_t *)(data + channels[k].location
+						+ repeat_nr*channels[k].bytes),
+					   &channels[k]);
+				break;
+			case 4:
+				print4byte(*(uint32_t *)(data + channels[k].location
+						+ repeat_nr*channels[k].bytes),
+					   &channels[k]);
+				break;
+			case 8:
+				print8byte(*(uint64_t *)(data + channels[k].location
+						+ repeat_nr*channels[k].bytes),
+					   &channels[k]);
+				break;
+			default:
+				break;
+			}
+		} while (++repeat_nr < (channels[k].repeat ? channels[k].repeat : 1));
+	}
 	printf("\n");
 }
 
