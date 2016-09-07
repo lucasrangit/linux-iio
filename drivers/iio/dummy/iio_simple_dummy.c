@@ -268,19 +268,20 @@ static const struct iio_chan_spec iio_dummy_channels[] = {
 };
 
 /**
- * iio_dummy_read_raw() - data read function.
+ * iio_dummy_read_raw_multi() - data read function
  * @indio_dev:	the struct iio_dev associated with this device instance
  * @chan:	the channel whose data is to be read
- * @val:	first element of returned value (typically INT)
- * @val2:	second element of returned value (typically MICRO)
+ * @max_len:	maximum number of elements
+ * @vals:	the elements making up the returned value
+ *		(typically vals[0] INT vals[1] MICRO)
+ * @val_len:	length of valid elements in vals
  * @mask:	what we actually want to read as per the info_mask_*
  *		in iio_chan_spec.
  */
-static int iio_dummy_read_raw(struct iio_dev *indio_dev,
-			      struct iio_chan_spec const *chan,
-			      int *val,
-			      int *val2,
-			      long mask)
+static int iio_dummy_read_raw_multi(struct iio_dev *indio_dev,
+	struct iio_chan_spec const *chan,
+	int max_len, int *vals, int *val_len,
+	long mask)
 {
 	struct iio_dummy_state *st = iio_priv(indio_dev);
 	int ret = -EINVAL;
@@ -292,21 +293,25 @@ static int iio_dummy_read_raw(struct iio_dev *indio_dev,
 		case IIO_VOLTAGE:
 			if (chan->output) {
 				/* Set integer part to cached value */
-				*val = st->dac_val;
+				vals[0] = st->dac_val;
+				*val_len = 1;
 				ret = IIO_VAL_INT;
 			} else if (chan->differential) {
 				if (chan->channel == 1)
-					*val = st->differential_adc_val[0];
+					vals[0] = st->differential_adc_val[0];
 				else
-					*val = st->differential_adc_val[1];
+					vals[0] = st->differential_adc_val[1];
+				*val_len = 1;
 				ret = IIO_VAL_INT;
 			} else {
-				*val = st->single_ended_adc_val;
+				vals[0] = st->single_ended_adc_val;
+				*val_len = 1;
 				ret = IIO_VAL_INT;
 			}
 			break;
 		case IIO_ACCEL:
-			*val = st->accel_val;
+			vals[0] = st->accel_val;
+			*val_len = 1;
 			ret = IIO_VAL_INT;
 			break;
 		default:
@@ -316,17 +321,20 @@ static int iio_dummy_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_PROCESSED:
 		switch (chan->type) {
 		case IIO_STEPS:
-			*val = st->steps;
+			vals[0] = st->steps;
+			*val_len = 1;
 			ret = IIO_VAL_INT;
 			break;
 		case IIO_ACTIVITY:
 			switch (chan->channel2) {
 			case IIO_MOD_RUNNING:
-				*val = st->activity_running;
+				vals[0] = st->activity_running;
+				*val_len = 1;
 				ret = IIO_VAL_INT;
 				break;
 			case IIO_MOD_WALKING:
-				*val = st->activity_walking;
+				vals[0] = st->activity_walking;
+				*val_len = 1;
 				ret = IIO_VAL_INT;
 				break;
 			default:
@@ -339,7 +347,8 @@ static int iio_dummy_read_raw(struct iio_dev *indio_dev,
 		break;
 	case IIO_CHAN_INFO_OFFSET:
 		/* only single ended adc -> 7 */
-		*val = 7;
+		vals[0] = 7;
+		*val_len = 1;
 		ret = IIO_VAL_INT;
 		break;
 	case IIO_CHAN_INFO_SCALE:
@@ -348,14 +357,16 @@ static int iio_dummy_read_raw(struct iio_dev *indio_dev,
 			switch (chan->differential) {
 			case 0:
 				/* only single ended adc -> 0.001333 */
-				*val = 0;
-				*val2 = 1333;
+				vals[0] = 0;
+				vals[1] = 1333;
+				*val_len = 1;
 				ret = IIO_VAL_INT_PLUS_MICRO;
 				break;
 			case 1:
 				/* all differential adc -> 0.000001344 */
-				*val = 0;
-				*val2 = 1344;
+				vals[0] = 0;
+				vals[1] = 1344;
+				*val_len = 1;
 				ret = IIO_VAL_INT_PLUS_NANO;
 			}
 			break;
@@ -365,23 +376,27 @@ static int iio_dummy_read_raw(struct iio_dev *indio_dev,
 		break;
 	case IIO_CHAN_INFO_CALIBBIAS:
 		/* only the acceleration axis - read from cache */
-		*val = st->accel_calibbias;
+		vals[0] = st->accel_calibbias;
+		*val_len = 1;
 		ret = IIO_VAL_INT;
 		break;
 	case IIO_CHAN_INFO_CALIBSCALE:
-		*val = st->accel_calibscale->val;
-		*val2 = st->accel_calibscale->val2;
+		vals[0] = st->accel_calibscale->val;
+		vals[1] = st->accel_calibscale->val2;
+		*val_len = 1;
 		ret = IIO_VAL_INT_PLUS_MICRO;
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		*val = 3;
-		*val2 = 33;
+		vals[0] = 3;
+		vals[1] = 33;
+		*val_len = 1;
 		ret = IIO_VAL_INT_PLUS_NANO;
 		break;
 	case IIO_CHAN_INFO_ENABLE:
 		switch (chan->type) {
 		case IIO_STEPS:
-			*val = st->steps_enabled;
+			vals[0] = st->steps_enabled;
+			*val_len = 1;
 			ret = IIO_VAL_INT;
 			break;
 		default:
@@ -391,7 +406,8 @@ static int iio_dummy_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_CALIBHEIGHT:
 		switch (chan->type) {
 		case IIO_STEPS:
-			*val = st->height;
+			vals[0] = st->height;
+			*val_len = 1;
 			ret = IIO_VAL_INT;
 			break;
 		default:
@@ -517,7 +533,7 @@ static int iio_dummy_write_raw(struct iio_dev *indio_dev,
  */
 static const struct iio_info iio_dummy_info = {
 	.driver_module = THIS_MODULE,
-	.read_raw = &iio_dummy_read_raw,
+	.read_raw_multi = &iio_dummy_read_raw_multi,
 	.write_raw = &iio_dummy_write_raw,
 #ifdef CONFIG_IIO_SIMPLE_DUMMY_EVENTS
 	.read_event_config = &iio_simple_dummy_read_event_config,
