@@ -221,6 +221,21 @@ static const struct iio_chan_spec iio_dummy_channels[] = {
 			.shift = 0, /* zero shift */
 		},
 	},
+	/* Rotation channel with 4 repeated elements */
+	{
+		.type = IIO_ROT,
+		.modified = 1,
+		.channel2 = IIO_MOD_QUATERNION,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
+		.scan_index = DUMMY_INDEX_ROT,
+		.scan_type = {
+			.sign = 's',
+			.realbits = sizeof(uint16_t) * 8,
+			.storagebits = sizeof(uint16_t) * 8,
+			.endianness = IIO_LE,
+			.repeat = 4,
+		},
+	},
 	/* Convenience macro for timestamps */
 	IIO_CHAN_SOFT_TIMESTAMP(DUMMY_INDEX_TIMESTAMP),
 	/* DAC channel out_voltage0_raw */
@@ -313,6 +328,16 @@ static int iio_dummy_read_raw_multi(struct iio_dev *indio_dev,
 			vals[0] = st->accel_val;
 			*val_len = 1;
 			ret = IIO_VAL_INT;
+			break;
+		case IIO_ROT:
+			if (max_len >= 4) {
+				vals[0] = st->rotation_val[0];
+				vals[1] = st->rotation_val[1];
+				vals[2] = st->rotation_val[2];
+				vals[3] = st->rotation_val[3];
+				*val_len = 4;
+				ret = IIO_VAL_INT_MULTIPLE;
+			}
 			break;
 		default:
 			break;
@@ -564,6 +589,10 @@ static int iio_dummy_init_device(struct iio_dev *indio_dev)
 	st->steps = 47;
 	st->activity_running = 98;
 	st->activity_walking = 4;
+	st->rotation_val[0] = 52;
+	st->rotation_val[1] = 126;
+	st->rotation_val[2] = 51;
+	st->rotation_val[3] = 75;
 
 	return 0;
 }
