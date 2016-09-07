@@ -102,6 +102,7 @@ iio_simple_dummy_events_unregister(struct iio_dev *indio_dev)
  * @DUMMY_INDEX_DIFFVOLTAGE_1M2:   first differential channel
  * @DUMMY_INDEX_DIFFVOLTAGE_3M4:   second differential channel
  * @DUMMY_INDEX_ACCELX:            acceleration channel
+ * @DUMMY_INDEX_TIMESTAMP:         timestamp (must be last)
  *
  * Enum provides convenient numbering for the scan index.
  */
@@ -110,6 +111,7 @@ enum iio_simple_dummy_scan_elements {
 	DUMMY_INDEX_DIFFVOLTAGE_1M2,
 	DUMMY_INDEX_DIFFVOLTAGE_3M4,
 	DUMMY_INDEX_ACCELX,
+	DUMMY_INDEX_TIMESTAMP,
 };
 
 #ifdef CONFIG_IIO_SIMPLE_DUMMY_BUFFER

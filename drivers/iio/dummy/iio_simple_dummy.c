@@ -221,11 +221,8 @@ static const struct iio_chan_spec iio_dummy_channels[] = {
 			.shift = 0, /* zero shift */
 		},
 	},
-	/*
-	 * Convenience macro for timestamps. 4 is the index in
-	 * the buffer.
-	 */
-	IIO_CHAN_SOFT_TIMESTAMP(4),
+	/* Convenience macro for timestamps */
+	IIO_CHAN_SOFT_TIMESTAMP(DUMMY_INDEX_TIMESTAMP),
 	/* DAC channel out_voltage0_raw */
 	{
 		.type = IIO_VOLTAGE,
