@@ -31,6 +31,7 @@ static const s16 fakedata[] = {
 	[DUMMY_INDEX_DIFFVOLTAGE_1M2] = -33,
 	[DUMMY_INDEX_DIFFVOLTAGE_3M4] = -2,
 	[DUMMY_INDEX_ACCELX] = 344,
+	[DUMMY_INDEX_ROT] = 30,
 };
 
 /**
@@ -80,8 +81,16 @@ static irqreturn_t iio_simple_dummy_trigger_h(int irq, void *p)
 			j = find_next_bit(indio_dev->active_scan_mask,
 					  indio_dev->masklength, j);
 			/* random access read from the 'device' */
-			data[i] = fakedata[j];
-			len += 2;
+			if (j == DUMMY_INDEX_ROT) {
+				data[i++] = fakedata[j];
+				data[i++] = fakedata[j] + 1;
+				data[i++] = fakedata[j] + 2;
+				data[i++] = fakedata[j] + 3;
+				len += 8;
+			} else {
+				data[i] = fakedata[j];
+				len += 2;
+			}
 		}
 	}
 

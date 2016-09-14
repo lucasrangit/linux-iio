@@ -13,6 +13,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <ctype.h>
+#include <stdbool.h>
 #include "iio_utils.h"
 
 const char *iio_dir = "/sys/bus/iio/devices/";
@@ -76,6 +77,7 @@ int iioutils_break_up_name(const char *full_name, char **generic_name)
  * @is_signed: output whether channel is signed
  * @bytes: output how many bytes the channel storage occupies
  * @bits_used: output number of valid bits of data
+ * @repeat: output number of times bits_used repeats
  * @shift: output amount of bits to shift right data before applying bit mask
  * @mask: output a bit mask for the raw data
  * @be: output if data in big endian
@@ -86,7 +88,7 @@ int iioutils_break_up_name(const char *full_name, char **generic_name)
  * Returns a value >= 0 on success, otherwise a negative error code.
  **/
 int iioutils_get_type(unsigned *is_signed, unsigned *bytes, unsigned *bits_used,
-		      unsigned *shift, uint64_t *mask, unsigned *be,
+		      unsigned *repeat, unsigned *shift, uint64_t *mask, unsigned *be,
 		      const char *device_dir, const char *name,
 		      const char *generic_name)
 {
@@ -97,6 +99,8 @@ int iioutils_get_type(unsigned *is_signed, unsigned *bytes, unsigned *bits_used,
 	char signchar, endianchar;
 	unsigned padint;
 	const struct dirent *ent;
+	bool repeats = false;
+	char c;
 
 	ret = asprintf(&scan_el_dir, FORMAT_SCAN_ELEMENTS_DIR, device_dir);
 	if (ret < 0)
@@ -138,18 +142,38 @@ int iioutils_get_type(unsigned *is_signed, unsigned *bytes, unsigned *bits_used,
 				goto error_free_filename;
 			}
 
-			ret = fscanf(sysfsfp,
-				     "%ce:%c%u/%u>>%u",
-				     &endianchar,
-				     &signchar,
-				     bits_used,
-				     &padint, shift);
+			do {
+				c = fgetc(sysfsfp);
+				if (c == 'X')
+					repeats = true;
+			} while (c != EOF);
+			rewind(sysfsfp);
+
+			if (!repeats) {
+				*repeat = 0;
+				ret = fscanf(sysfsfp,
+						"%ce:%c%u/%u>>%u",
+						&endianchar,
+						&signchar,
+						bits_used,
+						&padint,
+						shift);
+			} else {
+				ret = fscanf(sysfsfp,
+						 "%ce:%c%u/%uX%u>>%u",
+						 &endianchar,
+						 &signchar,
+						 bits_used,
+						 &padint,
+						 repeat,
+						 shift);
+			}
 			if (ret < 0) {
 				ret = -errno;
 				fprintf(stderr,
 					"failed to pass scan type description\n");
 				goto error_close_sysfsfp;
-			} else if (ret != 5) {
+			} else if ((!repeats && ret != 5) || (repeats && ret != 6)) {
 				ret = -EIO;
 				fprintf(stderr,
 					"scan type description didn't match\n");
@@ -501,6 +525,7 @@ int build_channel_array(const char *device_dir,
 			ret = iioutils_get_type(&current->is_signed,
 						&current->bytes,
 						&current->bits_used,
+						&current->repeat,
 						&current->shift,
 						&current->mask,
 						&current->be,
